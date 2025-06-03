@@ -1,0 +1,138 @@
+---
+title: "calibration_pt1"
+author: "Kelsey Warren"
+format: html
+editor: visual
+---
+
+## Calibration Pt 1
+
+-   develop another metric of performance (different from in-class example)
+-   apply to all runs in the dataset
+-   find the "best" parameter set based on your metric
+-   decide on a threshold for acceptability
+-   plot results for all acceptable parameters
+-   choose a plot that shows model performance in a way that fits your metric
+
+```{r, echo=TRUE, eval=TRUE}
+
+# load libraries
+library(tidyverse)
+library(here)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+
+
+# load data
+msage = readRDS(here("Data/msage.RDS"))
+
+# create msagel (rearrange for plotting)
+msagel = msage %>% gather(key="run",value="str", -date, -month, -day, -year, -wy,-obs)
+source(here("R/high_flow_days.R"))
+
+
+####################################################################################
+
+# load new function
+source(here("R/compute_annual_highflow_days.R"))
+
+
+
+# run model for all parameter sets in msagel
+# rename dataset for function
+df <- msagel
+
+# Get all unique model runs
+run_names <- unique(df$run)
+
+# Apply the metric function to each run
+results <- map_dfr(run_names, function(run_id) {
+  df_run <- df %>% filter(run == run_id)
+  
+  metrics <- compute_annual_highflow_days(
+    m = df_run$str,
+    o = df_run$obs,
+    wy = df_run$wy,
+    threshold = 0.3
+  )
+  
+  data.frame(
+    run = run_id,
+    avg_obs_days = metrics$avg_obs_days,
+    avg_mod_days = metrics$avg_mod_days,
+    diff_days = metrics$diff_days,
+    corr = metrics$corr
+  )
+})
+
+
+# find the best parameter set based on my metric
+best <- results %>% arrange(abs(diff_days)) %>% slice(1)
+print(best)
+
+
+
+# Decide on a Threshold for Acceptability
+# Set a threshold for what you consider acceptable performance. For example:
+# Acceptable if model is within ±5 days of observed average
+acceptable <- results %>% filter(abs(diff_days) <= 5)
+
+
+
+
+# PLOT results for all acceptable parameters
+# Bar Plot of Difference in High Flow Days
+# Arrange results by absolute difference
+results <- results %>% arrange(abs(diff_days))
+
+# Get top 3 best-performing runs
+top_runs <- results %>% slice_head(n = 1) %>% pull(run)
+
+# Create label column
+results <- results %>%
+  mutate(
+    label = ifelse(run %in% top_runs, run, "")
+  )
+
+# Plot
+ggplot(results, aes(x = reorder(run, diff_days), y = diff_days,
+                    fill = abs(diff_days) <= 5)) +
+  geom_col() +
+  geom_text(aes(label = label), vjust = -0.5, size = 3.2, angle = 90) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  scale_fill_manual(values = c("TRUE" = "forestgreen", "FALSE" = "gray70")) +
+  labs(title = "Difference in Avg. High Flow Days per Year by Run",
+       y = "Model - Observed Days",
+       x = "Run (sorted)",
+       fill = "Acceptable") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.title = element_text(size = 14, face = "bold")
+  )
+
+
+
+
+
+# Plot Model Performance (Time Series or Yearly Comparison)
+# Time Series for Top 3 Acceptable Runs
+top_runs <- acceptable %>% arrange(abs(diff_days)) %>% slice_head(n = 3) %>% pull(run)
+
+df_top <- df %>% filter(run %in% top_runs)
+
+ggplot(df_top, aes(x = as.Date(date))) +
+  geom_line(aes(y = obs, color = "Observed")) +
+  geom_line(aes(y = str, color = run), alpha = 0.7) +
+  labs(title = "Observed vs Modeled Streamflow for Top Runs",
+       y = "Flow (m³/s)", x = "Date", color = "Legend") +
+  facet_wrap(~run, scales = "free_y")
+
+
+
+
+
+```
