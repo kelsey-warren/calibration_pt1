@@ -30,13 +30,12 @@ msage = readRDS(here("Data/msage.RDS"))
 
 # create msagel (rearrange for plotting)
 msagel = msage %>% gather(key="run",value="str", -date, -month, -day, -year, -wy,-obs)
+
+# load function that calculates number of annual high flow (>0.3) days 
 source(here("R/compute_annual_highflow_days.R"))
 
 
 ####################################################################################
-
-# load new function
-source(here("R/compute_annual_highflow_days.R"))
 
 
 
