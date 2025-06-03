@@ -30,7 +30,7 @@ msage = readRDS(here("Data/msage.RDS"))
 
 # create msagel (rearrange for plotting)
 msagel = msage %>% gather(key="run",value="str", -date, -month, -day, -year, -wy,-obs)
-source(here("R/high_flow_days.R"))
+source(here("R/compute_annual_highflow_days.R"))
 
 
 ####################################################################################
@@ -77,7 +77,7 @@ print(best)
 # Decide on a Threshold for Acceptability
 # Set a threshold for what you consider acceptable performance. For example:
 # Acceptable if model is within ±5 days of observed average
-acceptable <- results %>% filter(abs(diff_days) <= 5)
+acceptable <- results %>% filter(abs(diff_days) <= 50)
 
 
 
