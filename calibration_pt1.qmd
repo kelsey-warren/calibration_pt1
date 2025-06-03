@@ -1,6 +1,6 @@
 ---
 title: "calibration_pt1"
-author: "Kelsey Warren"
+author: "Henry Strecker & Kelsey Warren"
 format: html
 editor: visual
 ---
@@ -38,15 +38,15 @@ source(here("R/compute_annual_highflow_days.R"))
 ####################################################################################
 
 
-
+#### RUN MODEL
 # run model for all parameter sets in msagel
-# rename dataset for function
+# first rename dataset for function
 df <- msagel
 
-# Get all unique model runs
+# get all unique model runs
 run_names <- unique(df$run)
 
-# Apply the metric function to each run
+# apply the metric function to each run
 results <- map_dfr(run_names, function(run_id) {
   df_run <- df %>% filter(run == run_id)
   
@@ -67,37 +67,39 @@ results <- map_dfr(run_names, function(run_id) {
 })
 
 
+
+#### BEST PARAMETER SET
 # find the best parameter set based on my metric
 best <- results %>% arrange(abs(diff_days)) %>% slice(1)
 print(best)
 
 
-
-# Decide on a Threshold for Acceptability
-# Set a threshold for what you consider acceptable performance. For example:
-# Acceptable if model is within ±5 days of observed average
-acceptable <- results %>% filter(abs(diff_days) <= 50)
-
+#### ACCEPTIBILITY
+# define a threshold for acceptability
+# acceptable if model is within ±50 days of observed average
+acceptable <- results %>% filter(abs(diff_days) <= 15)
 
 
 
-# PLOT results for all acceptable parameters
-# Bar Plot of Difference in High Flow Days
-# Arrange results by absolute difference
+
+####  PLOT RESULTS FOR ALL ACCEPTABLE PARAMETERS
+
+# bar chart of difference in high flow days
+# arrange results by absolute difference
 results <- results %>% arrange(abs(diff_days))
 
-# Get top 3 best-performing runs
-top_runs <- results %>% slice_head(n = 1) %>% pull(run)
+# get top 3 best-performing runs
+top_run <- results %>% slice_head(n = 1) %>% pull(run)
 
-# Create label column
+# create label column
 results <- results %>%
   mutate(
-    label = ifelse(run %in% top_runs, run, "")
+    label = ifelse(run %in% top_run, run, "")
   )
 
-# Plot
+# plot
 ggplot(results, aes(x = reorder(run, diff_days), y = diff_days,
-                    fill = abs(diff_days) <= 5)) +
+                    fill = abs(diff_days) <= 15)) +
   geom_col() +
   geom_text(aes(label = label), vjust = -0.5, size = 3.2, angle = 90) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
@@ -115,10 +117,9 @@ ggplot(results, aes(x = reorder(run, diff_days), y = diff_days,
 
 
 
+####  PLOT THAT SHOWS MODEL PERFORMANCE IN A WAY THAT FITS MY METRIC
 
-
-# Plot Model Performance (Time Series or Yearly Comparison)
-# Time Series for Top 3 Acceptable Runs
+# time series for top 3 acceptable runs
 top_runs <- acceptable %>% arrange(abs(diff_days)) %>% slice_head(n = 3) %>% pull(run)
 
 df_top <- df %>% filter(run %in% top_runs)
